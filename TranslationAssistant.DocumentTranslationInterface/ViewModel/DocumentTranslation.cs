@@ -161,7 +161,9 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                 return new DelegateCommand(
                     () =>
                         {
-                            DocumentTranslatorResult resultCounts = new DocumentTranslatorResult();
+                            int sourceFileCharCount = 0;
+                            int targetFileCharCount = 0;
+                            IEnumerable<DocumentTranslatorResult> resultList = new List<DocumentTranslatorResult>();
                             this.ShowProgressBar = true;
                             this.IsGoButtonEnabled = false;
                             this.StatusText = Properties.Resources.Common_Started;
@@ -176,6 +178,8 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
 
                             worker.DoWork += (o, e) =>
                                 {
+                                    sourceFileCharCount = 0;
+                                    targetFileCharCount = 0;
                                     this.IsStarted = true;
 
                                     foreach (var file in this.InputFilePaths)
@@ -184,17 +188,23 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                         this.IsNavigateToTargetFolderEnabled = true;
                                         model.TargetPath = file;
                                         this.StatusText = Properties.Resources.Common_TranslatingDocument + " " + Path.GetFileName(model.TargetPath);
-                                        DocumentTranslatorResult tmpResults = DocumentTranslationManager.DoTranslation(
+                                        IEnumerable<DocumentTranslatorResult> tmpResultList = DocumentTranslationManager.DoTranslation(
                                             file,
                                             false,
                                             this.SelectedSourceLanguage,
                                             this.SelectedTargetLanguage,
                                             this.IgnoreHiddenContent);
+                                        resultList = resultList.Concat(tmpResultList);
 
-                                        resultCounts.SourceFileCharCount += tmpResults.SourceFileCharCount;
-                                        resultCounts.TargetFileCharCount += tmpResults.TargetFileCharCount;
+                                    }
+
+                                    foreach (DocumentTranslatorResult result in resultList)
+                                    {
+                                        sourceFileCharCount += result.SourceCharCount;
+                                        targetFileCharCount += result.TargetCharCount;
                                     }
                                 };
+
 
                             worker.RunWorkerCompleted += (o, e) =>
                                 {
@@ -205,7 +215,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                     }
                                     else
                                     {
-                                        string charCountText = string.Format("{0} characters in source; {1} characters in target\n", resultCounts.SourceFileCharCount, resultCounts.TargetFileCharCount);
+                                        string charCountText = string.Format("{0} characters in source; {1} characters in target\n", sourceFileCharCount, targetFileCharCount);
                                         StatusText = charCountText + Properties.Resources.Common_Statustext1 + "\"."+TranslationServiceFacade.LanguageNameToLanguageCode(this.SelectedTargetLanguage)+".\"" + Properties.Resources.Common_Statustext2;
                                     }
 
