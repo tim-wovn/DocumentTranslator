@@ -161,6 +161,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                 return new DelegateCommand(
                     () =>
                         {
+                            int charCount = 0;
                             this.ShowProgressBar = true;
                             this.IsGoButtonEnabled = false;
                             this.StatusText = Properties.Resources.Common_Started;
@@ -183,7 +184,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                         this.IsNavigateToTargetFolderEnabled = true;
                                         model.TargetPath = file;
                                         this.StatusText = Properties.Resources.Common_TranslatingDocument + " " + Path.GetFileName(model.TargetPath);
-                                        DocumentTranslationManager.DoTranslation(
+                                        charCount += DocumentTranslationManager.DoTranslation(
                                             file,
                                             false,
                                             this.SelectedSourceLanguage,
@@ -201,7 +202,8 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                     }
                                     else
                                     {
-                                        StatusText = Properties.Resources.Common_Statustext1 + "\"."+TranslationServiceFacade.LanguageNameToLanguageCode(this.SelectedTargetLanguage)+".\"" + Properties.Resources.Common_Statustext2;
+                                        string charCountText = string.Format("{0} characters were processed\n", charCount);
+                                        StatusText = charCountText + Properties.Resources.Common_Statustext1 + "\"."+TranslationServiceFacade.LanguageNameToLanguageCode(this.SelectedTargetLanguage)+".\"" + Properties.Resources.Common_Statustext2;
                                     }
 
                                     this.IsStarted = false;
