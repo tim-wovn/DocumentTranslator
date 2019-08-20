@@ -161,7 +161,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                 return new DelegateCommand(
                     () =>
                         {
-                            int charCount = 0;
+                            DocumentTranslatorResult resultCounts = new DocumentTranslatorResult();
                             this.ShowProgressBar = true;
                             this.IsGoButtonEnabled = false;
                             this.StatusText = Properties.Resources.Common_Started;
@@ -184,12 +184,15 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                         this.IsNavigateToTargetFolderEnabled = true;
                                         model.TargetPath = file;
                                         this.StatusText = Properties.Resources.Common_TranslatingDocument + " " + Path.GetFileName(model.TargetPath);
-                                        charCount += DocumentTranslationManager.DoTranslation(
+                                        DocumentTranslatorResult tmpResults = DocumentTranslationManager.DoTranslation(
                                             file,
                                             false,
                                             this.SelectedSourceLanguage,
                                             this.SelectedTargetLanguage,
                                             this.IgnoreHiddenContent);
+
+                                        resultCounts.SourceFileCharCount += tmpResults.SourceFileCharCount;
+                                        resultCounts.TargetFileCharCount += tmpResults.TargetFileCharCount;
                                     }
                                 };
 
@@ -202,7 +205,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                     }
                                     else
                                     {
-                                        string charCountText = string.Format("{0} characters were processed\n", charCount);
+                                        string charCountText = string.Format("{0} characters in source; {1} characters in target\n", resultCounts.SourceFileCharCount, resultCounts.TargetFileCharCount);
                                         StatusText = charCountText + Properties.Resources.Common_Statustext1 + "\"."+TranslationServiceFacade.LanguageNameToLanguageCode(this.SelectedTargetLanguage)+".\"" + Properties.Resources.Common_Statustext2;
                                     }
 

@@ -37,6 +37,24 @@ namespace TranslationAssistant.Business
 
     #endregion
 
+    public class DocumentTranslatorResult
+    {
+        private int sourceFileCharCount = 0;
+        private int targetFileCharCount = 0;
+
+        public int SourceFileCharCount
+        {
+            get { return sourceFileCharCount; }
+            set { sourceFileCharCount = value; }
+        }
+
+        public int TargetFileCharCount
+        {
+            get { return targetFileCharCount; }
+            set { targetFileCharCount = value; }
+        }
+    }
+
     /// <summary>
     ///     The document translation manager.
     /// </summary>
@@ -54,12 +72,16 @@ namespace TranslationAssistant.Business
         /// <param name="isDir">The is dir.</param>
         /// <param name="sourceLanguage">The source language.</param>
         /// <param name="targetLanguage">The target langauge.</param>
-        public static int DoTranslation(string path, bool isDir, string sourceLanguage, string targetLanguage, bool ignoreHidden = false)
+        public static DocumentTranslatorResult DoTranslation(string path, bool isDir, string sourceLanguage, string targetLanguage, bool ignoreHidden = false)
         {
-            int count = 0;
-            GetAllDocumentsToProcess(path, targetLanguage)
-                .ForEach(t => count += DoTranslationInternal(t, sourceLanguage, targetLanguage, ignoreHidden));
-            return count;
+            DocumentTranslatorResult result = new DocumentTranslatorResult();
+            foreach (string t in GetAllDocumentsToProcess(path, targetLanguage))
+            {
+                int[] resultArray = DoTranslationInternal(t, sourceLanguage, targetLanguage, ignoreHidden);
+                result.SourceFileCharCount = resultArray[0];
+                result.TargetFileCharCount = resultArray[1];
+            }
+            return result;
         }
 
         #endregion
@@ -271,30 +293,39 @@ namespace TranslationAssistant.Business
         /// <param name="fullNameForDocumentToProcess">The full name for document to process.</param>
         /// <param name="sourceLanguage">The source language.</param>
         /// <param name="targetLanguage">The target langauge.</param>
-        private static int DoTranslationInternal(
+        private static int[] DoTranslationInternal(
             string fullNameForDocumentToProcess,
             string sourceLanguage,
             string targetLanguage,
             bool ignoreHidden = false)
         {
-            int charCount = 0;
+            int sourceCharCount = 0;
+            int targetCharCount = 0;
             try
             {
                 if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".docx"))
                 {
-                    charCount = ProcessWordDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    int[] intArray = ProcessWordDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    sourceCharCount = intArray[0];
+                    targetCharCount = intArray[1];
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".xlsx"))
                 {
-                    charCount = ProcessExcelDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    int[] intArray = ProcessExcelDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    sourceCharCount = intArray[0];
+                    targetCharCount = intArray[1];
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".pptx"))
                 {
-                    charCount = ProcessPowerPointDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    int[] intArray = ProcessPowerPointDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    sourceCharCount = intArray[0];
+                    targetCharCount = intArray[1];
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".txt") || fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".text"))
                 {
-                    charCount = ProcessTextDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage);
+                    int[] intArray = ProcessTextDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage);
+                    sourceCharCount = intArray[0];
+                    targetCharCount = intArray[1];
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".html") || fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".htm"))
                 {
@@ -322,7 +353,7 @@ namespace TranslationAssistant.Business
                     string.Format("{0}:{1}", fullNameForDocumentToProcess, ex.Message + ex.StackTrace));
                 throw;
             }
-            return charCount;
+            return new int[] { sourceCharCount, targetCharCount };
         }
 
         /// <summary>
@@ -414,12 +445,14 @@ namespace TranslationAssistant.Business
         /// <param name="fullNameForDocumentToProcess">SOurce document file name</param>
         /// <param name="sourceLanguage">From language</param>
         /// <param name="targetLanguage">To language</param>
-        private static int ProcessTextDocument(string fullNameForDocumentToProcess, string sourceLanguage, string targetLanguage)
+        private static int[] ProcessTextDocument(string fullNameForDocumentToProcess, string sourceLanguage, string targetLanguage)
         {
+            int sourceCharCount = 0;
+            int targetCharCount = 0;
+
             var document = File.ReadAllLines(fullNameForDocumentToProcess, Encoding.UTF8);
             List<string> lstTexts = new List<string>(document);
-            var lineCounts = lstTexts.Select(line => line.Length);
-            int charCount = lineCounts.Sum();
+            sourceCharCount += lstTexts.Select(text => text.Length).Sum();
             var batches = SplitList(lstTexts, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
             File.Delete(fullNameForDocumentToProcess);
 
@@ -427,13 +460,14 @@ namespace TranslationAssistant.Business
             {
                 string[] translated = TranslationServiceFacade.TranslateArray(batch.ToArray(), sourceLanguage, targetLanguage);
                 File.AppendAllLines(fullNameForDocumentToProcess, translated, Encoding.UTF8);
+                translated.Select(text => targetCharCount += text.Length);
             }
 
-            return charCount;
+            return new int[] { sourceCharCount, targetCharCount };
         }
 
 
-        private static int ProcessExcelDocument(
+        private static int[] ProcessExcelDocument(
             string outputDocumentFullName,
             string sourceLanguage,
             string targetLanguage,
@@ -441,7 +475,8 @@ namespace TranslationAssistant.Business
         {
             using (SpreadsheetDocument document = SpreadsheetDocument.Open(outputDocumentFullName, true))
             {
-                int charCount = 0;
+                int sourceCharCount = 0;
+                int targetCharCount = 0;
                 //document.WorkbookPart.SharedStringTablePart.PutXDocument();
                 List<DocumentFormat.OpenXml.Spreadsheet.Text> lstTexts = new List<DocumentFormat.OpenXml.Spreadsheet.Text>();
                 foreach (SharedStringItem si in document.WorkbookPart.SharedStringTablePart.SharedStringTable.Elements<SharedStringItem>())
@@ -457,6 +492,7 @@ namespace TranslationAssistant.Business
                 }
 
                 var batch = lstTexts.Select(item => item.Text);
+                sourceCharCount += batch.Select(text => text.Length).Sum();
                 IEnumerable<string> values = batch as string[] ?? batch.ToArray();
 
                 var batches = SplitList(values, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
@@ -489,6 +525,7 @@ namespace TranslationAssistant.Business
                                     var newValue = translationOutput[j];
                                     translated[indexInDocument - 1] = newValue;
                                     lstTexts[indexInDocument-1].Text = newValue;
+                                    targetCharCount += newValue.Length;
                                 }
                             }
                             catch (Exception ex)
@@ -522,6 +559,7 @@ namespace TranslationAssistant.Business
                 }
 
                 var batchComments = lstComments.Select(item => item.InnerText);
+                sourceCharCount += batchComments.Select(text => text.Length).Sum();
                 var batchesComments = SplitList(batchComments, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
                 string[] translatedComments = new string[batchesComments.Count()];
 
@@ -563,7 +601,7 @@ namespace TranslationAssistant.Business
                                                                                               Text = newValue
                                                                                           }
                                                                               };
-                                    charCount += newValue.Length;
+                                    targetCharCount += newValue.Length;
                                 }
                             }
                             catch (Exception ex)
@@ -577,16 +615,17 @@ namespace TranslationAssistant.Business
                 {
                     throw new AggregateException(exceptions);
                 }
-                return charCount;
+                return new int[] { sourceCharCount, targetCharCount };
             }
         }
 
-        private static int ProcessPowerPointDocument(string outputDocumentFullName,string sourceLanguage,string targetLanguage, bool ignoreHidden = false)
+        private static int[] ProcessPowerPointDocument(string outputDocumentFullName,string sourceLanguage,string targetLanguage, bool ignoreHidden = false)
         {
             using (PresentationDocument doc = PresentationDocument.Open(outputDocumentFullName, true))
             {
                 //doc.PresentationPart.PutXDocument();
-                int charCount = 0;
+                int sourceCharCount = 0;
+                int targetCharCount = 0;
                 List<DocumentFormat.OpenXml.Drawing.Text> texts = new List<DocumentFormat.OpenXml.Drawing.Text>();
                 List<DocumentFormat.OpenXml.Drawing.Text> notes = new List<DocumentFormat.OpenXml.Drawing.Text>();
                 List<DocumentFormat.OpenXml.Presentation.Comment> lstComments = new List<DocumentFormat.OpenXml.Presentation.Comment>();
@@ -615,8 +654,14 @@ namespace TranslationAssistant.Business
                         }
                     }
 
-                    ReplaceTextsWithTranslation(texts, sourceLanguage, targetLanguage);
-                    ReplaceTextsWithTranslation(notes, sourceLanguage, targetLanguage);
+                    int[] textCounts = ReplaceTextsWithTranslation(texts, sourceLanguage, targetLanguage);
+                    int[] noteCounts = ReplaceTextsWithTranslation(notes, sourceLanguage, targetLanguage);
+
+                    sourceCharCount += textCounts[0];
+                    targetCharCount += textCounts[1];
+                    sourceCharCount += noteCounts[0];
+                    targetCharCount += noteCounts[1];
+
 
                     if (lstComments.Count() > 0)
                     {
@@ -659,7 +704,7 @@ namespace TranslationAssistant.Business
                                         {
                                             Text = newValue
                                         };
-                                        charCount += newValue.Length;
+                                        targetCharCount += newValue.Length;
                                     }
                                 }
                                 catch (Exception ex)
@@ -677,16 +722,19 @@ namespace TranslationAssistant.Business
                 }
 
                 //doc.PresentationPart.PutXDocument();
-                return charCount;
+                return new int[] { sourceCharCount, targetCharCount };
             }
         }
 
-        private static void ReplaceTextsWithTranslation(List<DocumentFormat.OpenXml.Drawing.Text> texts, string sourceLanguage, string targetLanguage)
+        private static int[] ReplaceTextsWithTranslation(List<DocumentFormat.OpenXml.Drawing.Text> texts, string sourceLanguage, string targetLanguage)
         {
+            int sourceCharCount = 0;
+            int targetCharCount = 0;
             if (texts.Count() > 0)
             {
                 // Extract Text for Translation
                 var batch = texts.Select(text => text.Text);
+                sourceCharCount += batch.Select(text => text.Length).Sum();
 
                 // Do Translation
                 var batches = SplitList(batch, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
@@ -716,6 +764,7 @@ namespace TranslationAssistant.Business
                                 int indexInDocument = j + batchStartIndexInDocument + 1;
                                 var newValue = translationOutput[j];
                                 texts.Take(indexInDocument).Last().Text = newValue;
+                                targetCharCount += newValue.Length;
                             }
                         }
                         catch (Exception ex)
@@ -730,6 +779,7 @@ namespace TranslationAssistant.Business
                     throw new AggregateException(exceptions);
                 }
             }
+            return new int[] { sourceCharCount, targetCharCount };
         }
 
         private static void ExtractTextContent(List<DocumentFormat.OpenXml.Drawing.Text> textList, DocumentFormat.OpenXml.OpenXmlElement element)
@@ -740,13 +790,14 @@ namespace TranslationAssistant.Business
             }
         }
 
-        private static int ProcessWordDocument(
+        private static int[] ProcessWordDocument(
             string outputDocumentFullName,
             string sourceLanguage,
             string targetLanguage,
             bool ignoreHidden = false)
         {
-            int charCount = 0;
+            int sourceCharCount = 0;
+            int targetCharCount = 0;
             using (WordprocessingDocument doc = WordprocessingDocument.Open(outputDocumentFullName, true))
             {
 
@@ -802,6 +853,7 @@ namespace TranslationAssistant.Business
 
                 // Extract Text for Translation
                 var batch = texts.Select(text => text.Text);
+                sourceCharCount += batch.Select(text => text.Length).Sum();
 
                 // Do Translation
                 var batches = SplitList(batch, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
@@ -829,7 +881,7 @@ namespace TranslationAssistant.Business
                                     int indexInDocument = j + batchStartIndexInDocument + 1;
                                     var newValue = translationOutput[j];
                                     texts.Take(indexInDocument).Last().Text = newValue;
-                                    charCount += newValue.Length;
+                                    targetCharCount += newValue.Length;
                                 }
                             }
                             catch (Exception ex)
@@ -846,7 +898,7 @@ namespace TranslationAssistant.Business
 
                 //doc.MainDocumentPart.PutXDocument();
             }
-            return charCount;
+            return new int[] { sourceCharCount, targetCharCount };
         }
 
 
