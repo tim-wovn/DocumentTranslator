@@ -200,8 +200,8 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
 
                                     foreach (DocumentTranslatorResult result in resultList)
                                     {
-                                        sourceFileCharCount += result.SourceCharCount;
-                                        targetFileCharCount += result.TargetCharCount;
+                                        sourceFileCharCount += result.Counts.SourceCharCount;
+                                        targetFileCharCount += result.Counts.TargetCharCount;
                                     }
                                 };
 

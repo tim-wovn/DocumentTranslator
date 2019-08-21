@@ -42,11 +42,9 @@ namespace TranslationAssistant.Business
         public DocumentTranslatorResult(string filePath, CharCounts counts)
         {
             FilePath = filePath;
-            SourceCharCount = counts.SourceCharCount;
-            TargetCharCount = counts.TargetCharCount;
+            Counts = counts;
         }
-        public int SourceCharCount { get; set; }
-        public int TargetCharCount { get; set; }
+        public CharCounts Counts { get; set; }
         public string FilePath { get; set; }
 
     }
@@ -84,17 +82,9 @@ namespace TranslationAssistant.Business
         /// <param name="targetLanguage">The target langauge.</param>
         public static IEnumerable<DocumentTranslatorResult> DoTranslation(string path, bool isDir, string sourceLanguage, string targetLanguage, bool ignoreHidden = false)
         {
-            IEnumerable<DocumentTranslatorResult> resultList = new List<DocumentTranslatorResult>();
-            foreach (string t in GetAllDocumentsToProcess(path, targetLanguage))
-            {
-                DocumentTranslatorResult result = DoTranslationInternal(t, sourceLanguage, targetLanguage, ignoreHidden);
-                if (result != null)
-                {
-                    resultList = resultList.Concat(new [] { result } );
-                }
-
-            }
-            return resultList;
+            return GetAllDocumentsToProcess(path, targetLanguage)
+                .Select(t => DoTranslationInternal(t, sourceLanguage, targetLanguage, ignoreHidden))
+                .Where(r => r != null);
         }
 
         #endregion
@@ -662,6 +652,7 @@ namespace TranslationAssistant.Business
                     {
                         // Extract Text for Translation
                         var batch = lstComments.Select(text => text.InnerText);
+                        counts.SourceCharCount += batch.Select(text => text.Length).Sum();
 
                         // Do Translation
                         var batchesComments = SplitList(batch, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
