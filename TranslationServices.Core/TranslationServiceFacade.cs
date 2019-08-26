@@ -601,6 +601,25 @@ namespace TranslationAssistant.TranslationServices.Core
             }
         }
 
+        private static Boolean checkContains(string text, int min, int max)
+        {
+            return text.Where(e => e >= min && e <= max).Any();
+        }
+
+        private static Boolean checkSkipTranslation(string text, string targetLangCode)
+        {
+            // If target language is 'ja', don't translate if we detect Japanese characters
+            // https://stackoverflow.com/questions/15805859/detect-japanese-character-input-and-romajis-ascii
+            Boolean skipTranslation = false;
+            if (targetLangCode == "ja")
+            {
+                // skipTranslation |= checkContains(totranslate, 0x0020, 0x007E); // romaji
+                skipTranslation |= checkContains(text, 0x3040, 0x309F); // hiragana
+                skipTranslation |= checkContains(text, 0x30A0, 0x30FF); // katakana
+                skipTranslation |= checkContains(text, 0x4E00, 0x9FBF); // kanji
+            }
+            return skipTranslation;
+        }
 
         /// <summary>
         /// Raw function to translate an array of strings. Doe snot allow elements to be larger than <see cref="maxrequestsize"/>.
@@ -631,11 +650,25 @@ namespace TranslationAssistant.TranslationServices.Core
             string uri = EndPointAddressV3Public + path + params_;
             if (_UseAzureGovernment) uri = EndPointAddressV3Gov + path + params_;
             
-
+            // All texts that aren't translated are put in a result list
+            // Translated results get a null placeholder that will remind
+            // us to read from the translated results list later
             ArrayList requestAL = new ArrayList();
+            string[] outputTexts = new string[texts.Length];
+            int textI = 0;
             foreach (string text in texts)
             {
-                requestAL.Add(new { Text = text } );
+                Boolean skipTranslation = checkSkipTranslation(text, to);
+                if (skipTranslation)
+                {
+                    outputTexts[textI] = text;
+                }
+                else
+                {
+                    requestAL.Add(new { Text = text });
+                    outputTexts[textI] = null;
+                }
+                textI++;
             }
             string requestJson = JsonConvert.SerializeObject(requestAL);
 
@@ -705,6 +738,11 @@ namespace TranslationAssistant.TranslationServices.Core
                 foreach (JObject result in jaresult)
                 {
                     string txt = (string)result.SelectToken("translations[0].text");
+                    int tmpI = Array.FindIndex(outputTexts, translation => translation == null);
+                    outputTexts[tmpI] = txt;
+                }
+                foreach (string txt in outputTexts)
+                {
                     resultList.Add(txt);
                 }
             }
