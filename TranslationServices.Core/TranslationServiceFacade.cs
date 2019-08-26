@@ -601,22 +601,19 @@ namespace TranslationAssistant.TranslationServices.Core
             }
         }
 
-        private static Boolean checkContains(string text, int min, int max)
-        {
-            return text.Where(e => e >= min && e <= max).Any();
-        }
+        private static bool ContainsUnicodeRange(string text, int min, int max) => text.Any(e => e >= min && e <= max);
 
-        private static Boolean checkSkipTranslation(string text, string targetLangCode)
+        private static bool CheckSkipTranslation(string text, string targetLangCode)
         {
             // If target language is 'ja', don't translate if we detect Japanese characters
             // https://stackoverflow.com/questions/15805859/detect-japanese-character-input-and-romajis-ascii
-            Boolean skipTranslation = false;
+            bool skipTranslation = false;
             if (targetLangCode == "ja")
             {
                 // skipTranslation |= checkContains(totranslate, 0x0020, 0x007E); // romaji
-                skipTranslation |= checkContains(text, 0x3040, 0x309F); // hiragana
-                skipTranslation |= checkContains(text, 0x30A0, 0x30FF); // katakana
-                skipTranslation |= checkContains(text, 0x4E00, 0x9FBF); // kanji
+                skipTranslation |= ContainsUnicodeRange(text, 0x3040, 0x309F); // hiragana
+                skipTranslation |= ContainsUnicodeRange(text, 0x30A0, 0x30FF); // katakana
+                skipTranslation |= ContainsUnicodeRange(text, 0x4E00, 0x9FBF); // kanji
             }
             return skipTranslation;
         }
@@ -658,7 +655,7 @@ namespace TranslationAssistant.TranslationServices.Core
             int textI = 0;
             foreach (string text in texts)
             {
-                Boolean skipTranslation = checkSkipTranslation(text, to);
+                bool skipTranslation = CheckSkipTranslation(text, to);
                 if (skipTranslation)
                 {
                     outputTexts[textI] = text;
