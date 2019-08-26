@@ -433,7 +433,7 @@ namespace TranslationAssistant.TranslationServices.Core
 
             toCode = LanguageNameToLanguageCode(to);
 
-            string[] result = TranslateV3Async(texts, fromCode, toCode, _CategoryID, contentType).Result;
+            string[] result = Task.Run(() => TranslateV3Async(texts, fromCode, toCode, _CategoryID, contentType)).Result;
             return result;
         }
 
