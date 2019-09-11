@@ -59,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CsvWriter.cs" />
+    <Compile Include="DocumentReaderManager.cs" />
     <Compile Include="DocumentTranslationManager.cs" />
     <Compile Include="SRTTranslationManager.cs" />
     <Compile Include="HTMLTranslationManager.cs" />
