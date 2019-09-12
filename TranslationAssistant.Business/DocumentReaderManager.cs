@@ -71,7 +71,6 @@ namespace TranslationAssistant.Business
         /// </summary>
         /// <param name="path">The path.</param>
         /// <param name="isDir">The is dir.</param>
-        /// <param name="sourceLanguage">The source language.</param>
         /// <param name="targetLanguage">The target langauge.</param>
         public static IEnumerable<DocumentReaderResult> GetDocumentText(string path, bool isDir, string targetLanguage, bool ignoreHidden = false)
         {
@@ -286,8 +285,6 @@ namespace TranslationAssistant.Business
         ///     The get document text internal.
         /// </summary>
         /// <param name="fullNameForDocumentToProcess">The full name for document to process.</param>
-        /// <param name="sourceLanguage">The source language.</param>
-        /// <param name="targetLanguage">The target langauge.</param>
         private static DocumentReaderResult GetDocumentTextInternal(
             string fullNameForDocumentToProcess,
             bool ignoreHidden = false)
@@ -422,9 +419,7 @@ namespace TranslationAssistant.Business
         /// <summary>
         /// Translates a plain text document in UTF8 encoding to the target language.
         /// </summary>
-        /// <param name="fullNameForDocumentToProcess">SOurce document file name</param>
-        /// <param name="sourceLanguage">From language</param>
-        /// <param name="targetLanguage">To language</param>
+        /// <param name="fullNameForDocumentToProcess">Source document file name</param>
         private static DocumentReaderResult ProcessTextDocument(string fullNameForDocumentToProcess)
         {
             CharCounts counts = new CharCounts();
