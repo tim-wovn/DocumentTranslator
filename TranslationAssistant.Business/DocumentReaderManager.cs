@@ -39,31 +39,21 @@ namespace TranslationAssistant.Business
 
     public class DocumentReaderResult
     {
-        public DocumentReaderResult(string filePath, DocumentText texts)
+        public DocumentReaderResult(DocumentText texts)
         {
-            FilePath = filePath;
             Texts = texts;
         }
         public DocumentText Texts { get; set; }
-        public string FilePath { get; set; }
 
     }
 
     public class DocumentText
     {
-        public List<string> TextList { get; set; }
+        private List<string> _textList;
+        public IReadOnlyList<string> TextList => _textList;
+        public DocumentText() => _textList = new List<string> { };
 
-        public DocumentText()
-        {
-            TextList = new List<string>();
-        }
-
-        public static DocumentText operator +(DocumentText result1, DocumentText result2)
-        {
-            DocumentText combinedResult = new DocumentText();
-            combinedResult.TextList = result1.TextList.Concat(result2.TextList).ToList();
-            return combinedResult;
-        }
+        public void Add(List<string> texts) => _textList.AddRange(texts);
     }
 
     /// <summary>
@@ -83,11 +73,10 @@ namespace TranslationAssistant.Business
         /// <param name="isDir">The is dir.</param>
         /// <param name="sourceLanguage">The source language.</param>
         /// <param name="targetLanguage">The target langauge.</param>
-        public static IEnumerable<DocumentReaderResult> GetDocumentText(string path, bool isDir, string sourceLanguage, string targetLanguage, bool ignoreHidden = false)
+        public static IEnumerable<DocumentReaderResult> GetDocumentText(string path, bool isDir, string targetLanguage, bool ignoreHidden = false)
         {
             return GetAllDocumentsToProcess(path, targetLanguage)
-                .Select(t => GetDocumentTextInternal(t, sourceLanguage, targetLanguage, ignoreHidden))
-                .Where(r => r != null);
+                .Select(t => GetDocumentTextInternal(t, ignoreHidden));
         }
 
         #endregion
@@ -301,8 +290,6 @@ namespace TranslationAssistant.Business
         /// <param name="targetLanguage">The target langauge.</param>
         private static DocumentReaderResult GetDocumentTextInternal(
             string fullNameForDocumentToProcess,
-            string sourceLanguage,
-            string targetLanguage,
             bool ignoreHidden = false)
         {
             DocumentReaderResult result = null;
@@ -310,27 +297,19 @@ namespace TranslationAssistant.Business
             {
                 if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".docx"))
                 {
-                    result = ProcessWordDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    result = ProcessWordDocument(fullNameForDocumentToProcess, ignoreHidden);
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".xlsx"))
                 {
-                    result = ProcessExcelDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    result = ProcessExcelDocument(fullNameForDocumentToProcess, ignoreHidden);
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".pptx"))
                 {
-                    result = ProcessPowerPointDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage, ignoreHidden);
+                    result = ProcessPowerPointDocument(fullNameForDocumentToProcess, ignoreHidden);
                 }
                 else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".txt") || fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".text"))
                 {
-                    result = ProcessTextDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage);
-                }
-                else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".html") || fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".htm"))
-                {
-                    ProcessHTMLDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage);
-                }
-                else if (fullNameForDocumentToProcess.ToLowerInvariant().EndsWith(".srt"))
-                {
-                    ProcessSRTDocument(fullNameForDocumentToProcess, sourceLanguage, targetLanguage);
+                    result = ProcessTextDocument(fullNameForDocumentToProcess);
                 }
             }
             catch (AggregateException ae)
@@ -446,23 +425,21 @@ namespace TranslationAssistant.Business
         /// <param name="fullNameForDocumentToProcess">SOurce document file name</param>
         /// <param name="sourceLanguage">From language</param>
         /// <param name="targetLanguage">To language</param>
-        private static DocumentReaderResult ProcessTextDocument(string fullNameForDocumentToProcess, string sourceLanguage, string targetLanguage)
+        private static DocumentReaderResult ProcessTextDocument(string fullNameForDocumentToProcess)
         {
             CharCounts counts = new CharCounts();
             DocumentText extractedText = new DocumentText();
             var document = File.ReadAllLines(fullNameForDocumentToProcess, Encoding.UTF8);
             List<string> lstTexts = new List<string>(document);
-            extractedText.TextList = extractedText.TextList.Concat(lstTexts.ToList()).ToList();
+            extractedText.Add(lstTexts);
             File.Delete(fullNameForDocumentToProcess);
 
-            return new DocumentReaderResult(fullNameForDocumentToProcess, extractedText);
+            return new DocumentReaderResult(extractedText);
         }
 
 
         private static DocumentReaderResult ProcessExcelDocument(
             string outputDocumentFullName,
-            string sourceLanguage,
-            string targetLanguage,
             bool ignoreHidden = false)
         {
             using (SpreadsheetDocument document = SpreadsheetDocument.Open(outputDocumentFullName, true))
@@ -485,7 +462,7 @@ namespace TranslationAssistant.Business
 
                 var batch = lstTexts.Select(item => item.Text);
                 IEnumerable<string> values = batch as string[] ?? batch.ToArray();
-                extractedText.TextList = extractedText.TextList.Concat(values.ToList()).ToList();
+                extractedText.Add(values.ToList());
 
                 // Get comments
                 WorkbookPart workBookPart = document.WorkbookPart;
@@ -495,13 +472,13 @@ namespace TranslationAssistant.Business
                     lstComments.AddRange(commentsPart.Comments.CommentList.Cast<Comment>());
                 }
                 var batchComments = lstComments.Select(item => item.InnerText);
-                extractedText.TextList = extractedText.TextList.Concat(batchComments.ToList()).ToList();
+                extractedText.Add(batchComments.ToList());
 
-                return new DocumentReaderResult (outputDocumentFullName, extractedText);
+                return new DocumentReaderResult (extractedText);
             }
         }
 
-        private static DocumentReaderResult ProcessPowerPointDocument(string outputDocumentFullName, string sourceLanguage, string targetLanguage, bool ignoreHidden = false)
+        private static DocumentReaderResult ProcessPowerPointDocument(string outputDocumentFullName, bool ignoreHidden = false)
         {
             using (PresentationDocument doc = PresentationDocument.Open(outputDocumentFullName, true))
             {
@@ -537,17 +514,17 @@ namespace TranslationAssistant.Business
                     }
 
                     var batchText = texts.Select(text => text.Text);
-                    extractedText.TextList = extractedText.TextList.Concat(batchText.ToList()).ToList();
+                    extractedText.Add(batchText.ToList());
 
                     var batchNotes = notes.Select(text => text.Text);
-                    extractedText.TextList = extractedText.TextList.Concat(batchNotes.ToList()).ToList();
+                    extractedText.Add(batchNotes.ToList());
 
                     var batchComments = lstComments.Select(text => text.InnerText);
-                    extractedText.TextList = extractedText.TextList.Concat(batchComments.ToList()).ToList();
+                    extractedText.Add(batchComments.ToList());
                 }
                     
                 //doc.PresentationPart.PutXDocument();
-                return new DocumentReaderResult(outputDocumentFullName, extractedText);
+                return new DocumentReaderResult(extractedText);
             }
         }
 
@@ -561,8 +538,6 @@ namespace TranslationAssistant.Business
 
         private static DocumentReaderResult ProcessWordDocument(
             string outputDocumentFullName,
-            string sourceLanguage,
-            string targetLanguage,
             bool ignoreHidden = false)
         {
             DocumentText extractedText = new DocumentText();
@@ -622,10 +597,10 @@ namespace TranslationAssistant.Business
 
                 // Extract Text for Translation
                 var batch = texts.Select(text => text.Text);
-                extractedText.TextList = extractedText.TextList.Concat(batch.ToList()).ToList();
+                extractedText.Add(batch.ToList());
 
             }
-            return new DocumentReaderResult(outputDocumentFullName, extractedText);
+            return new DocumentReaderResult(extractedText);
         }
 
 
