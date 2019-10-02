@@ -422,7 +422,6 @@ namespace TranslationAssistant.Business
         /// <param name="fullNameForDocumentToProcess">Source document file name</param>
         private static DocumentReaderResult ProcessTextDocument(string fullNameForDocumentToProcess)
         {
-            CharCounts counts = new CharCounts();
             DocumentText extractedText = new DocumentText();
             var document = File.ReadAllLines(fullNameForDocumentToProcess, Encoding.UTF8);
             List<string> lstTexts = new List<string>(document);
@@ -439,7 +438,6 @@ namespace TranslationAssistant.Business
         {
             using (SpreadsheetDocument document = SpreadsheetDocument.Open(outputDocumentFullName, true))
             {
-                CharCounts counts = new CharCounts();
                 DocumentText extractedText = new DocumentText();
                 //document.WorkbookPart.SharedStringTablePart.PutXDocument();
                 List<DocumentFormat.OpenXml.Spreadsheet.Text> lstTexts = new List<DocumentFormat.OpenXml.Spreadsheet.Text>();
@@ -478,7 +476,6 @@ namespace TranslationAssistant.Business
             using (PresentationDocument doc = PresentationDocument.Open(outputDocumentFullName, true))
             {
                 //doc.PresentationPart.PutXDocument();
-                CharCounts counts = new CharCounts();
                 DocumentText extractedText = new DocumentText();
                 List<DocumentFormat.OpenXml.Drawing.Text> texts = new List<DocumentFormat.OpenXml.Drawing.Text>();
                 List<DocumentFormat.OpenXml.Drawing.Text> notes = new List<DocumentFormat.OpenXml.Drawing.Text>();
@@ -536,7 +533,6 @@ namespace TranslationAssistant.Business
             bool ignoreHidden = false)
         {
             DocumentText extractedText = new DocumentText();
-            CharCounts counts = new CharCounts();
             using (WordprocessingDocument doc = WordprocessingDocument.Open(outputDocumentFullName, true))
             {
 

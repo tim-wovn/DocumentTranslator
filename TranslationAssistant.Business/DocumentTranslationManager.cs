@@ -39,32 +39,16 @@ namespace TranslationAssistant.Business
 
     public class DocumentTranslatorResult
     {
-        public DocumentTranslatorResult(string filePath, CharCounts counts, DocumentText srcTexts, DocumentText dstTexts)
+        public DocumentTranslatorResult(string filePath, DocumentText srcTexts, DocumentText dstTexts)
         {
             FilePath = filePath;
-            Counts = counts;
             SrcTexts = srcTexts;
             DstTexts = dstTexts;
         }
-        public CharCounts Counts { get; set; }
         public string FilePath { get; set; }
         public DocumentText SrcTexts { get; set; }
         public DocumentText DstTexts { get; set; }
 
-    }
-
-    public class CharCounts
-    {
-        public int SourceCharCount { get; set; }
-        public int TargetCharCount { get; set; }
-
-        public static CharCounts operator +(CharCounts result1, CharCounts result2)
-        {
-            CharCounts combinedResult = new CharCounts();
-            combinedResult.SourceCharCount = result1.SourceCharCount + result2.SourceCharCount;
-            combinedResult.TargetCharCount = result1.TargetCharCount + result2.TargetCharCount;
-            return combinedResult;
-        }
     }
 
     /// <summary>
@@ -456,13 +440,11 @@ namespace TranslationAssistant.Business
         /// <param name="targetLanguage">To language</param>
         private static DocumentTranslatorResult ProcessTextDocument(string fullNameForDocumentToProcess, string sourceLanguage, string targetLanguage)
         {
-            CharCounts counts = new CharCounts();
             DocumentText srcText = new DocumentText();
             DocumentText dstText = new DocumentText();
 
             var document = File.ReadAllLines(fullNameForDocumentToProcess, Encoding.UTF8);
             List<string> lstTexts = new List<string>(document);
-            counts.SourceCharCount += lstTexts.Select(text => text.Length).Sum();
             var batches = SplitList(lstTexts, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
             srcText.Add(lstTexts);
             File.Delete(fullNameForDocumentToProcess);
@@ -472,10 +454,9 @@ namespace TranslationAssistant.Business
                 string[] translated = TranslationServiceFacade.TranslateArray(batch.ToArray(), sourceLanguage, targetLanguage);
                 dstText.Add(new List<string> (translated));
                 File.AppendAllLines(fullNameForDocumentToProcess, translated, Encoding.UTF8);
-                counts.TargetCharCount = translated.Select(text => text.Length).Sum();
             }
 
-            return new DocumentTranslatorResult(fullNameForDocumentToProcess, counts, srcText, dstText);
+            return new DocumentTranslatorResult(fullNameForDocumentToProcess, srcText, dstText);
         }
 
 
@@ -487,7 +468,6 @@ namespace TranslationAssistant.Business
         {
             using (SpreadsheetDocument document = SpreadsheetDocument.Open(outputDocumentFullName, true))
             {
-                CharCounts counts = new CharCounts();
                 //document.WorkbookPart.SharedStringTablePart.PutXDocument();
                 DocumentText srcText = new DocumentText();
                 DocumentText dstText = new DocumentText();
@@ -508,7 +488,6 @@ namespace TranslationAssistant.Business
                 srcText.Add(values.ToList());
 
                 batch = lstTexts.Select(item => item.Text);
-                counts.SourceCharCount += batch.Select(text => text.Length).Sum();
                 values = batch as string[] ?? batch.ToArray();
 
                 var batches = SplitList(values, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
@@ -543,7 +522,6 @@ namespace TranslationAssistant.Business
                                     var newValue = translationOutput[j];
                                     translated[indexInDocument - 1] = newValue;
                                     lstTexts[indexInDocument-1].Text = newValue;
-                                    counts.TargetCharCount += newValue.Length;
                                 }
                             }
                             catch (Exception ex)
@@ -580,7 +558,6 @@ namespace TranslationAssistant.Business
                 srcText.Add(batchComments.ToList());
 
                 batchComments = lstComments.Select(item => item.InnerText);
-                counts.SourceCharCount += batchComments.Select(text => text.Length).Sum();
                 var batchesComments = SplitList(batchComments, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
                 string[] translatedComments = new string[batchesComments.Count()];
                 dstText.Add(translatedComments.ToList());
@@ -622,7 +599,6 @@ namespace TranslationAssistant.Business
                                                                                               Text = newValue
                                                                                           }
                                                                               };
-                                    counts.TargetCharCount += newValue.Length;
                                 }
                             }
                             catch (Exception ex)
@@ -636,7 +612,7 @@ namespace TranslationAssistant.Business
                 {
                     throw new AggregateException(exceptions);
                 }
-                return new DocumentTranslatorResult (outputDocumentFullName, counts, srcText, dstText);
+                return new DocumentTranslatorResult (outputDocumentFullName, srcText, dstText);
             }
         }
 
@@ -645,7 +621,6 @@ namespace TranslationAssistant.Business
             using (PresentationDocument doc = PresentationDocument.Open(outputDocumentFullName, true))
             {
                 //doc.PresentationPart.PutXDocument();
-                CharCounts counts = new CharCounts();
                 DocumentText srcText = new DocumentText();
                 DocumentText dstText = new DocumentText();
                 List<DocumentFormat.OpenXml.Drawing.Text> texts = new List<DocumentFormat.OpenXml.Drawing.Text>();
@@ -685,22 +660,15 @@ namespace TranslationAssistant.Business
                     var batchComments = lstComments.Select(text => text.InnerText);
                     srcText.Add(batchComments.ToList());
 
-                    counts.SourceCharCount += texts.Select(text => text.Text.Length).Sum();
-                    counts.SourceCharCount += notes.Select(text => text.Text.Length).Sum();
-
                     List<string> translatedText = ReplaceTextsWithTranslation(texts, sourceLanguage, targetLanguage);
                     List<string> translatedNotes = ReplaceTextsWithTranslation(notes, sourceLanguage, targetLanguage);
                     dstText.Add(translatedText);
                     dstText.Add(translatedNotes);
 
-                    counts.TargetCharCount += translatedText.Select(text => text.Length).Sum();
-                    counts.TargetCharCount += translatedNotes.Select(text => text.Length).Sum();
-
                     if (lstComments.Count() > 0)
                     {
                         // Extract Text for Translation
                         var batch = lstComments.Select(text => text.InnerText);
-                        counts.SourceCharCount += batch.Select(text => text.Length).Sum();
 
                         // Do Translation
                         var batchesComments = SplitList(batch, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
@@ -739,7 +707,6 @@ namespace TranslationAssistant.Business
                                         {
                                             Text = newValue
                                         };
-                                        counts.TargetCharCount += newValue.Length;
                                     }
                                 }
                                 catch (Exception ex)
@@ -757,7 +724,7 @@ namespace TranslationAssistant.Business
                 }
 
                 //doc.PresentationPart.PutXDocument();
-                return new DocumentTranslatorResult(outputDocumentFullName, counts, srcText, dstText);
+                return new DocumentTranslatorResult(outputDocumentFullName, srcText, dstText);
             }
         }
 
@@ -831,7 +798,6 @@ namespace TranslationAssistant.Business
         {
             DocumentText srcText = new DocumentText();
             DocumentText dstText = new DocumentText();
-            CharCounts counts = new CharCounts();
             using (WordprocessingDocument doc = WordprocessingDocument.Open(outputDocumentFullName, true))
             {
 
@@ -891,7 +857,6 @@ namespace TranslationAssistant.Business
 
                 // Extract Text for Translation
                 batch = texts.Select(text => text.Text);
-                counts.SourceCharCount += batch.Select(text => text.Length).Sum();
 
                 // Do Translation
                 var batches = SplitList(batch, TranslationServiceFacade.maxelements, TranslationServiceFacade.maxrequestsize);
@@ -920,7 +885,6 @@ namespace TranslationAssistant.Business
                                     int indexInDocument = j + batchStartIndexInDocument + 1;
                                     var newValue = translationOutput[j];
                                     texts.Take(indexInDocument).Last().Text = newValue;
-                                    counts.TargetCharCount += newValue.Length;
                                 }
                             }
                             catch (Exception ex)
@@ -937,7 +901,7 @@ namespace TranslationAssistant.Business
 
                 //doc.MainDocumentPart.PutXDocument();
             }
-            return new DocumentTranslatorResult(outputDocumentFullName, counts, srcText, dstText);
+            return new DocumentTranslatorResult(outputDocumentFullName, srcText, dstText);
         }
 
 
