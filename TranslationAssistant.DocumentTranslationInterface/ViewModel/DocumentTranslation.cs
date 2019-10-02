@@ -193,15 +193,10 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                             false,
                                             this.SelectedSourceLanguage,
                                             this.SelectedTargetLanguage,
-                                            this.IgnoreHiddenContent);
+                                            this.IgnoreHiddenContent,
+                                            true);
                                         resultList = resultList.Concat(tmpResultList);
 
-                                    }
-
-                                    foreach (DocumentTranslatorResult result in resultList)
-                                    {
-                                        sourceFileCharCount += result.Counts.SourceCharCount;
-                                        targetFileCharCount += result.Counts.TargetCharCount;
                                     }
                                 };
 
@@ -215,8 +210,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
                                     }
                                     else
                                     {
-                                        string charCountText = string.Format("{0} characters in source; {1} characters in target\n", sourceFileCharCount, targetFileCharCount);
-                                        StatusText = charCountText + Properties.Resources.Common_Statustext1 + "\"."+TranslationServiceFacade.LanguageNameToLanguageCode(this.SelectedTargetLanguage)+".\"" + Properties.Resources.Common_Statustext2;
+                                        StatusText = Properties.Resources.Common_Statustext1 + "\"."+TranslationServiceFacade.LanguageNameToLanguageCode(this.SelectedTargetLanguage)+".\"" + Properties.Resources.Common_Statustext2;
                                     }
 
                                     this.IsStarted = false;
